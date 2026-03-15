@@ -7,13 +7,13 @@
 //!
 //! Each module has a focused job:
 //!
-//! | Module          | Layer   | Job                                                      |
-//! |-----------------|---------|----------------------------------------------------------|
-//! | `editor`        | Entity  | Owns text, cursor, blink task, `EntityInputHandler`      |
-//! | `editor_text`   | Element | Shapes text, paints cursor, wires `handle_input`         |
-//! | `input`         | View    | Single-line input — composes `ExampleEditorText` with styling   |
-//! | `text_area`     | View    | Multi-line text area — same entity, different layout      |
-//! | `main` (here)   | Render  | Root view — creates entities with `use_state`, assembles  |
+//! | Module          | Trait         | Job                                                    |
+//! |-----------------|---------------|--------------------------------------------------------|
+//! | `editor`        | EntityView    | Owns text, cursor, blink; renders via ExampleEditorText |
+//! | `input`         | View          | Single-line input with own state + cached editor child  |
+//! | `editor_info`   | View          | Read-only stats display; zero-wiring, same editor entity |
+//! | `text_area`     | ComponentView | Stateless multi-line wrapper; inner editor caches       |
+//! | `main` (here)   | Render        | Root view; creates entities with `use_state`, assembles  |
 //!
 //! ## Running
 //!
@@ -28,6 +28,7 @@
 //! ```
 
 mod example_editor;
+mod example_editor_info;
 mod example_input;
 mod example_text_area;
 
@@ -41,6 +42,7 @@ use gpui::{
 use gpui_platform::application;
 
 use example_editor::ExampleEditor;
+use example_editor_info::EditorInfo;
 use example_input::{ExampleInput, ExampleInputState};
 use example_text_area::ExampleTextArea;
 
@@ -70,6 +72,7 @@ impl ViewExample {
 impl Render for ViewExample {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let input_state = window.use_state(cx, |window, cx| ExampleInputState::new(window, cx));
+        let input_editor = input_state.read(cx).editor.clone();
         let textarea_editor = window.use_state(cx, |_window, cx| ExampleEditor::new(cx));
         let input_color = self.input_color;
         let textarea_color = self.textarea_color;
@@ -87,15 +90,17 @@ impl Render for ViewExample {
                     .flex_col()
                     .gap(px(4.))
                     .child(
-                        div().text_sm().text_color(hsla(0., 0., 0.3, 1.)).child(
-                            "Single-line input (Input — View with own state + cached editor)",
-                        ),
+                        div()
+                            .text_sm()
+                            .text_color(hsla(0., 0., 0.3, 1.))
+                            .child("Single-line input (View with own state + cached editor)"),
                     )
                     .child(
                         ExampleInput::new(input_state)
                             .width(px(320.))
                             .color(input_color),
-                    ),
+                    )
+                    .child(EditorInfo::new(input_editor)),
             )
             .child(
                 div()
@@ -115,13 +120,11 @@ impl Render for ViewExample {
                     .mt(px(12.))
                     .text_xs()
                     .text_color(hsla(0., 0., 0.5, 1.))
-                    .child("• ExampleEditor entity owns text, cursor, blink (EntityView)")
-                    .child("• ExampleInput is a View with its own state — caches independently")
-                    .child(
-                        "• ExampleTextArea is a ComponentView — stateless wrapper, editor caches",
-                    )
-                    .child("• Press Enter in input to flash border (only chrome re-renders)")
-                    .child("• Entities created via window.use_state()"),
+                    .child("• ExampleInput: View with own state — caches independently")
+                    .child("• EditorInfo: View on same editor — zero-wiring, auto-cached")
+                    .child("• ExampleTextArea: ComponentView — stateless wrapper")
+                    .child("• Press Enter in input to flash border (EditorInfo stays cached)")
+                    .child("• Type to see both input and info update reactively"),
             )
     }
 }

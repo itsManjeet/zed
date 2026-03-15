@@ -17,7 +17,7 @@ use crate::example_editor::ExampleEditor;
 use crate::{Backspace, Delete, End, Enter, Home, Left, Right};
 
 pub struct ExampleInputState {
-    editor: Entity<ExampleEditor>,
+    pub editor: Entity<ExampleEditor>,
     focus_handle: FocusHandle,
     is_focused: bool,
     flash_count: usize,
